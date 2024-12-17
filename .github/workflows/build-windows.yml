@@ -3,52 +3,43 @@ name: Build Windows Executable
 on: 
   push:
     branches:
-      - main  # Solo ejecuta el flujo de trabajo cuando haya un push en la rama principal
+      - main
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      # Paso 1: Checkout del código fuente
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Paso 2: Configurar el entorno de Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'  # Puedes mantener la versión que prefieras
+          python-version: '3.10'
 
-      # Paso 3: Instalar dependencias del proyecto
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt  # Si tienes un archivo requirements.txt
-          # Si no tienes requirements.txt, instala las dependencias directamente:
-          # pip install opencv-python mediapipe pyinstaller
+          pip install opencv-python mediapipe pyinstaller
 
-      # Paso 4: Descargar los modelos de MediaPipe (si es necesario)
       - name: Download MediaPipe models
         run: |
           curl -L -o pose_landmark_lite.tflite https://storage.googleapis.com/mediapipe-models/pose_landmark_lite.tflite
           curl -L -o hand_landmark.tflite https://storage.googleapis.com/mediapipe-models/hand_landmark.tflite
 
-      # Paso 5: Construir el ejecutable usando PyInstaller
       - name: Build executable with PyInstaller
         run: |
           pyinstaller --onefile --hidden-import=mediapipe --hidden-import=cv2 \
           --add-data "pose_landmark_lite.tflite;." --add-data "hand_landmark.tflite;." \
           body_capture.py
 
-      # Paso 6: Listar archivos generados (para depuración)
       - name: List files for debugging
         run: dir
         working-directory: dist
 
-      # Paso 7: Subir el ejecutable como artefacto
       - name: Upload executable
         uses: actions/upload-artifact@v3
         with:
           name: windows-executable
-          path: dist/body_capture.exe  # Ruta al ejecutable generado
+          path: dist/body_capture.exe
