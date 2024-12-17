@@ -21,7 +21,7 @@ jobs:
           pip install opencv-python mediapipe pyinstaller  # Instala bibliotecas necesarias
 
       - name: Build executable
-        run: pyinstaller --onefile main.py  # Convierte tu script en un ejecutable .exe
+        run: pyinstaller --onefile body_capture.py  # Convierte tu script en un ejecutable .exe
 
       - name: Upload executable
         uses: actions/upload-artifact@v3  # Sube el .exe generado como "artifact"
