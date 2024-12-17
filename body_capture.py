@@ -1,11 +1,25 @@
+import os
 import mediapipe as mp
 import cv2
 import time
 import tensorflow as tf
 
-# Cargar los modelos de TensorFlow Lite
-pose_model = tf.lite.Interpreter(model_path="pose_landmark_lite.tflite")
-hand_model = tf.lite.Interpreter(model_path="hand_landmark.tflite")
+# Obtener la ruta del directorio actual donde está el ejecutable
+base_path = os.path.dirname(os.path.abspath(__file__))
+
+# Cargar los modelos de TensorFlow Lite desde la misma carpeta que el ejecutable
+pose_model_path = os.path.join(base_path, "pose_landmark_lite.tflite")
+hand_model_path = os.path.join(base_path, "hand_landmark.tflite")
+
+# Verificar si los modelos existen
+if not os.path.exists(pose_model_path):
+    raise FileNotFoundError(f"Modelo no encontrado: {pose_model_path}")
+if not os.path.exists(hand_model_path):
+    raise FileNotFoundError(f"Modelo no encontrado: {hand_model_path}")
+
+# Cargar los modelos
+pose_model = tf.lite.Interpreter(model_path=pose_model_path)
+hand_model = tf.lite.Interpreter(model_path=hand_model_path)
 
 # Inicializar la sesión de ejecución
 pose_model.allocate_tensors()
@@ -13,7 +27,6 @@ hand_model.allocate_tensors()
 
 # Función para ejecutar el modelo de pose
 def run_pose_model(image):
-    # Preprocesar la imagen
     input_details = pose_model.get_input_details()
     output_details = pose_model.get_output_details()
 
