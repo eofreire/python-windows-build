@@ -29,10 +29,7 @@ jobs:
           curl -L -o hand_landmark.tflite https://storage.googleapis.com/mediapipe-models/hand_landmark.tflite
 
       - name: Build executable with PyInstaller
-        run: |
-          pyinstaller --onefile --hidden-import=mediapipe --hidden-import=cv2 \
-          --add-data "pose_landmark_lite.tflite:." --add-data "hand_landmark.tflite:." \
-          body_capture.py
+        run: pyinstaller --onefile --hidden-import=mediapipe --hidden-import=cv2 --add-data "pose_landmark_lite.tflite:." --add-data "hand_landmark.tflite:." body_capture.py
 
       - name: List files for debugging
         run: dir
