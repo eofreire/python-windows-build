@@ -22,7 +22,7 @@ start_time = None
 #csv_file_path = '/Users/eofreire/landmarks/landmarks.csv'
 
 # Abrir arquivo CSV para salvar os landmarks
-with open('/Users/eofreire/Library/Mobile Documents/com~apple~CloudDocs/LINTEC/Python/landmarks.csv', mode='w', newline='') as file:
+with open('landmarks.csv', mode='w', newline='') as file:
     writer = csv.writer(file)
     # Escrever cabeçalhos
     headers = ['elapsed_time']  # Adiciona o tempo decorrido como o primeiro cabeçalho
