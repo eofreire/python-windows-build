@@ -1,51 +1,37 @@
 name: Build Windows Executable
 
-on:
-  push:
-    branches:
-      - main  # Ejecutar cuando haya un push en la rama 'main'
+on: [push]
 
 jobs:
   build:
-    runs-on: windows-latest  # Usar el runner de Windows en GitHub Actions
+    runs-on: windows-latest
 
     steps:
-      # Paso 1: Checkout del código
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Paso 2: Configuración de Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      # Paso 3: Instalación de dependencias
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install opencv-python mediapipe tensorflow pyinstaller
+          pip install opencv-python-headless mediapipe tensorflow pyinstaller
 
-      # Paso 4: Copiar los modelos locales a la carpeta de trabajo
-      - name: Copy local models
+      - name: Build executable
         run: |
-          mkdir models
-          cp pose_landmark_lite.tflite models/
-          cp hand_landmark.tflite models/
+          pyinstaller --onefile --add-data "pose_landmark_lite.tflite;." --add-data "hand_landmark.tflite;." body_capture.py
 
-      # Paso 5: Construcción del ejecutable con PyInstaller
-      - name: Build executable with PyInstaller
-        run: |
-          pyinstaller --onefile --add-data "models/pose_landmark_lite.tflite;models" --add-data "models/hand_landmark.tflite;models" body_capture.py
+      - name: List files in dist folder
+        run: dir dist
 
-      # Paso 6: Listar los archivos generados para debug
-      - name: List files for debugging
-        run: dir
-        working-directory: dist
-
-      # Paso 7: Subir el ejecutable como artefacto
-      - name: Upload executable
+      - name: Upload executable and models
         uses: actions/upload-artifact@v3
         with:
           name: windows-executable
-          path: dist/body_capture.exe
+          path: |
+            dist/body_capture.exe
+            dist/pose_landmark_lite.tflite
+            dist/hand_landmark.tflite
