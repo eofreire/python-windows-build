@@ -18,7 +18,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install opencv-python-headless
+          pip install numpy
+          pip install opencv-python
           pip install mediapipe
           pip install "tensorflow==2.12.0"
           pip install pyinstaller
@@ -27,33 +28,20 @@ jobs:
         shell: cmd
         run: |
           echo import os > tf_hook.py
+          echo import numpy as np >> tf_hook.py
           echo import tensorflow as tf >> tf_hook.py
           echo os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' >> tf_hook.py
           echo os.environ['CUDA_VISIBLE_DEVICES'] = '-1' >> tf_hook.py
-          echo "tf.compat.v1.disable_eager_execution()" >> tf_hook.py
-
-      - name: Create hooks directory and files
-        shell: cmd
-        run: |
-          if not exist hooks mkdir hooks
-          echo from PyInstaller.utils.hooks import collect_data_files, collect_submodules > hooks/hook-tensorflow.py
-          echo hiddenimports = collect_submodules('tensorflow') >> hooks/hook-tensorflow.py
-          echo datas = collect_data_files('tensorflow') >> hooks/hook-tensorflow.py
 
       - name: Build executable with PyInstaller
         shell: cmd
         run: >-
           pyinstaller --onefile 
-          --add-data "pose_landmark_lite.tflite;." 
-          --add-data "hand_landmark.tflite;." 
           --hidden-import="mediapipe" 
           --hidden-import="cv2" 
           --hidden-import="tensorflow" 
-          --hidden-import="tensorflow.python.ops.array_ops" 
-          --hidden-import="tensorflow.python.util.tf_inspect" 
-          --hidden-import="tensorflow.python.training.tracking.base" 
-          --hidden-import="tensorflow.python.framework.ops" 
-          --additional-hooks-dir=hooks 
+          --hidden-import="numpy" 
+          --collect-all mediapipe 
           --runtime-hook=tf_hook.py 
           --clean 
           body_capture.py
