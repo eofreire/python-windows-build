@@ -1,85 +1,108 @@
-import mediapipe as mp
 import cv2
+import mediapipe as mp
+import csv
 import time
 import os
+import sys
+import tensorflow as tf
+
+def resource_path(relative_path):
+    """Obtém o caminho correto para os recursos, considerando PyInstaller."""
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+# Configurar ambiente
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suprime mensagens de log do TensorFlow
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # Desativa GPU
-import tensorflow as tf
-tf.compat.v1.disable_eager_execution()  # Desativa execução eager
 
-# Obtener la ruta del directorio actual donde está el ejecutable
-base_path = os.path.dirname(os.path.abspath(__file__))
+# Inicializar MediaPipe
+mp_drawing = mp.solutions.drawing_utils
+mp_holistic = mp.solutions.holistic
 
-# Cargar los modelos de TensorFlow Lite desde la misma carpeta que el ejecutable
-pose_model_path = os.path.join(base_path, "pose_landmark_lite.tflite")
-hand_model_path = os.path.join(base_path, "hand_landmark.tflite")
+def main():
+    # Configurar a captura de vídeo
+    cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FPS, 30)
 
-# Verificar si los modelos existen
-if not os.path.exists(pose_model_path):
-    raise FileNotFoundError(f"Modelo no encontrado: {pose_model_path}")
-if not os.path.exists(hand_model_path):
-    raise FileNotFoundError(f"Modelo no encontrado: {hand_model_path}")
+    # Variável para armazenar o timestamp do início
+    start_time = None
 
-# Cargar los modelos
-pose_model = tf.lite.Interpreter(model_path=pose_model_path)
-hand_model = tf.lite.Interpreter(model_path=hand_model_path)
+    # Abrir arquivo CSV para salvar os landmarks
+    with open('landmarks.csv', mode='w', newline='') as file:
+        writer = csv.writer(file)
+        # Escrever cabeçalhos
+        headers = ['elapsed_time']
+        for i in range(33):
+            headers += [f'pose_landmark_{i}_x', f'pose_landmark_{i}_y', f'pose_landmark_{i}_z', f'pose_landmark_{i}_visibility']
+        for i in range(21):
+            headers += [f'left_hand_landmark_{i}_x', f'left_hand_landmark_{i}_y', f'left_hand_landmark_{i}_z']
+            headers += [f'right_hand_landmark_{i}_x', f'right_hand_landmark_{i}_y', f'right_hand_landmark_{i}_z']
+        writer.writerow(headers)
 
-# Inicializar la sesión de ejecución
-pose_model.allocate_tensors()
-hand_model.allocate_tensors()
+        with mp_holistic.Holistic(
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5,
+            model_complexity=0
+        ) as holistic:
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
 
-# Función para ejecutar el modelo de pose
-def run_pose_model(image):
-    input_details = pose_model.get_input_details()
-    output_details = pose_model.get_output_details()
+                # Capturar o timestamp atual
+                current_timestamp = time.time()
 
-    input_data = image.astype('float32')
-    pose_model.set_tensor(input_details[0]['index'], input_data)
-    pose_model.invoke()
+                # Definir o timestamp inicial
+                if start_time is None:
+                    start_time = current_timestamp
 
-    # Obtener los resultados
-    output_data = pose_model.get_tensor(output_details[0]['index'])
-    return output_data
+                # Calcular o tempo decorrido desde o início
+                elapsed_time = current_timestamp - start_time
 
-# Función para ejecutar el modelo de manos
-def run_hand_model(image):
-    input_details = hand_model.get_input_details()
-    output_details = hand_model.get_output_details()
+                # Converter a imagem para RGB
+                image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                # Processar a imagem com MediaPipe Holistic
+                results = holistic.process(image)
 
-    input_data = image.astype('float32')
-    hand_model.set_tensor(input_details[0]['index'], input_data)
-    hand_model.invoke()
+                # Desenhar os landmarks na imagem
+                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
+                mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
+                mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
 
-    # Obtener los resultados
-    output_data = hand_model.get_tensor(output_details[0]['index'])
-    return output_data
+                # Mostrar a imagem em uma janela
+                cv2.imshow('MediaPipe Holistic', image)
 
-# Configuración de captura de video
-cap = cv2.VideoCapture(0)
-start_time = time.time()
+                # Salvar os landmarks e o tempo decorrido no arquivo CSV
+                if results.pose_landmarks or results.left_hand_landmarks or results.right_hand_landmarks:
+                    landmarks = [elapsed_time]
+                    if results.pose_landmarks:
+                        for landmark in results.pose_landmarks.landmark:
+                            landmarks += [landmark.x, landmark.y, landmark.z, landmark.visibility]
+                    else:
+                        landmarks += [float('nan')] * 132
+                    if results.left_hand_landmarks:
+                        for landmark in results.left_hand_landmarks.landmark:
+                            landmarks += [landmark.x, landmark.y, landmark.z]
+                    else:
+                        landmarks += [float('nan')] * 63
+                    if results.right_hand_landmarks:
+                        for landmark in results.right_hand_landmarks.landmark:
+                            landmarks += [landmark.x, landmark.y, landmark.z]
+                    else:
+                        landmarks += [float('nan')] * 63
+                    writer.writerow(landmarks)
 
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
-        break
+                # Finalizar se pressionar ESC
+                if cv2.waitKey(10) & 0xFF == 27:
+                    break
 
-    # Convertir la imagen a RGB
-    image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    # Liberar recursos
+    cap.release()
+    cv2.destroyAllWindows()
 
-    # Ejecutar los modelos de pose y manos
-    pose_results = run_pose_model(image)
-    hand_results = run_hand_model(image)
-
-    # Visualizar resultados (solo como referencia)
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-    # Mostrar ventana
-    cv2.imshow('MediaPipe Local Models', image)
-
-    # Salir con tecla ESC
-    if cv2.waitKey(10) & 0xFF == 27:
-        break
-
-# Liberar recursos
-cap.release()
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()
