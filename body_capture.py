@@ -2,9 +2,10 @@ import mediapipe as mp
 import cv2
 import time
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Reduz mensagens de log do TensorFlow
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suprime mensagens de log do TensorFlow
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # Desativa GPU
 import tensorflow as tf
-tf.keras.backend.clear_session()  # Limpa qualquer sessão existente
+tf.compat.v1.disable_eager_execution()  # Desativa execução eager
 
 # Obtener la ruta del directorio actual donde está el ejecutable
 base_path = os.path.dirname(os.path.abspath(__file__))
