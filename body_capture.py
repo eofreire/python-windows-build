@@ -6,15 +6,17 @@ import os
 import sys
 import tensorflow as tf
 
+def resource_path(relative_path):
+    """Obtém o caminho correto para os recursos, considerando PyInstaller."""
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 # Configurar ambiente
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suprime mensagens de log do TensorFlow
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # Desativa GPU
-
-def get_base_path():
-    """Obtém o caminho base para os recursos."""
-    if getattr(sys, 'frozen', False):
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.abspath(__file__))
 
 # Inicializar MediaPipe
 mp_drawing = mp.solutions.drawing_utils
@@ -28,11 +30,8 @@ def main():
     # Variável para armazenar o timestamp do início
     start_time = None
 
-    # Criar o arquivo CSV no diretório do executável
-    csv_path = os.path.join(get_base_path(), 'landmarks.csv')
-
     # Abrir arquivo CSV para salvar os landmarks
-    with open(csv_path, mode='w', newline='') as file:
+    with open('landmarks.csv', mode='w', newline='') as file:
         writer = csv.writer(file)
         # Escrever cabeçalhos
         headers = ['elapsed_time']
