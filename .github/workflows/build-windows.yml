@@ -31,18 +31,19 @@ jobs:
           os.environ["CUDA_VISIBLE_DEVICES"] = "-1"' > tf_hook.py
 
       - name: Build executable with PyInstaller
-        run: |
-          pyinstaller --onefile ^
-          --add-data "pose_landmark_lite.tflite;." ^
-          --add-data "hand_landmark.tflite;." ^
-          --hidden-import="mediapipe" ^
-          --hidden-import="cv2" ^
-          --hidden-import="tensorflow" ^
-          --additional-hooks-dir=hooks ^
-          --runtime-hook=tf_hook.py ^
-          --exclude-module=tensorflow.python.training.tracking.tracking ^
-          --exclude-module=tensorflow.python.training.tracking.util ^
-          --exclude-module=tensorflow.python.ops.gradients ^
+        shell: cmd
+        run: >-
+          pyinstaller --onefile 
+          --add-data "pose_landmark_lite.tflite;." 
+          --add-data "hand_landmark.tflite;." 
+          --hidden-import="mediapipe" 
+          --hidden-import="cv2" 
+          --hidden-import="tensorflow" 
+          --additional-hooks-dir=hooks 
+          --runtime-hook=tf_hook.py 
+          --exclude-module=tensorflow.python.training.tracking.tracking 
+          --exclude-module=tensorflow.python.training.tracking.util 
+          --exclude-module=tensorflow.python.ops.gradients 
           body_capture.py
 
       - name: List files in dist folder
