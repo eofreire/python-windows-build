@@ -22,35 +22,25 @@ jobs:
           pip install opencv-python
           pip install mediapipe
           pip install "tensorflow==2.12.0"
-          pip install pyinstaller
+          pip install cx_Freeze
 
-      - name: Create runtime-hook
+      - name: Create runtime initialization
         shell: cmd
         run: |
-          echo import os > tf_hook.py
-          echo import numpy as np >> tf_hook.py
-          echo import tensorflow as tf >> tf_hook.py
-          echo os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' >> tf_hook.py
-          echo os.environ['CUDA_VISIBLE_DEVICES'] = '-1' >> tf_hook.py
+          echo import os > init.py
+          echo import numpy as np >> init.py
+          echo import tensorflow as tf >> init.py
+          echo os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' >> init.py
+          echo os.environ['CUDA_VISIBLE_DEVICES'] = '-1' >> init.py
 
-      - name: Build executable with PyInstaller
-        shell: cmd
-        run: >-
-          pyinstaller --onefile 
-          --hidden-import="mediapipe" 
-          --hidden-import="cv2" 
-          --hidden-import="tensorflow" 
-          --hidden-import="numpy" 
-          --collect-all mediapipe 
-          --runtime-hook=tf_hook.py 
-          --clean 
-          body_capture.py
+      - name: Build executable with cx_Freeze
+        run: python setup.py build_exe
 
-      - name: List files in dist folder
-        run: dir dist
+      - name: List files in build folder
+        run: dir build
 
-      - name: Upload executable
+      - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: windows-executable
-          path: dist/body_capture.exe
+          path: build/
