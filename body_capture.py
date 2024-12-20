@@ -1,8 +1,10 @@
-import os
 import mediapipe as mp
 import cv2
 import time
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Reduz mensagens de log do TensorFlow
 import tensorflow as tf
+tf.keras.backend.clear_session()  # Limpa qualquer sessão existente
 
 # Obtener la ruta del directorio actual donde está el ejecutable
 base_path = os.path.dirname(os.path.abspath(__file__))
