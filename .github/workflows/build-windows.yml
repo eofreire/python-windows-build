@@ -20,15 +20,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install opencv-python-headless
           pip install mediapipe
-          pip install "tensorflow<2.14"
+          pip install "tensorflow==2.12.0"
           pip install pyinstaller
 
       - name: Create runtime-hook
         run: |
-          echo 'import os
-          import tensorflow as tf
-          tf.keras.backend.clear_session()
-          os.environ["CUDA_VISIBLE_DEVICES"] = "-1"' > tf_hook.py
+          echo import os > tf_hook.py
+          echo import tensorflow as tf >> tf_hook.py
+          echo os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' >> tf_hook.py
+          echo os.environ['CUDA_VISIBLE_DEVICES'] = '-1' >> tf_hook.py
+          echo tf.compat.v1.disable_eager_execution() >> tf_hook.py
+
+      - name: Create Analysis Hook
+        run: |
+          echo from PyInstaller.utils.hooks import collect_data_files, collect_submodules > hooks/hook-tensorflow.py
+          echo hiddenimports = collect_submodules('tensorflow') >> hooks/hook-tensorflow.py
+          echo datas = collect_data_files('tensorflow') >> hooks/hook-tensorflow.py
 
       - name: Build executable with PyInstaller
         shell: cmd
@@ -39,11 +46,13 @@ jobs:
           --hidden-import="mediapipe" 
           --hidden-import="cv2" 
           --hidden-import="tensorflow" 
+          --hidden-import="tensorflow.python.ops.array_ops" 
+          --hidden-import="tensorflow.python.util.tf_inspect" 
+          --hidden-import="tensorflow.python.training.tracking.base" 
+          --hidden-import="tensorflow.python.framework.ops" 
           --additional-hooks-dir=hooks 
           --runtime-hook=tf_hook.py 
-          --exclude-module=tensorflow.python.training.tracking.tracking 
-          --exclude-module=tensorflow.python.training.tracking.util 
-          --exclude-module=tensorflow.python.ops.gradients 
+          --clean 
           body_capture.py
 
       - name: List files in dist folder
