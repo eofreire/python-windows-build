@@ -21,7 +21,7 @@ jobs:
           pip install opencv-python-headless mediapipe tensorflow pyinstaller
 
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --add-data "pose_landmark_lite.tflite;." --add-data "hand_landmark.tflite;." --hidden-import="mediapipe" --hidden-import="cv2" body_capture.py
+        run: pyinstaller --onefile --add-data "pose_landmark_lite.tflite;." --add-data "hand_landmark.tflite;." --hidden-import="mediapipe" --hidden-import="cv2" --hidden-import="tensorflow" --additional-hooks-dir=hooks body_capture.py
 
       - name: List files in dist folder
         run: dir dist
