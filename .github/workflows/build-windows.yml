@@ -32,12 +32,10 @@ jobs:
           echo os.environ['CUDA_VISIBLE_DEVICES'] = '-1' >> tf_hook.py
           echo "tf.compat.v1.disable_eager_execution()" >> tf_hook.py
 
-      - name: Create hooks directory
-        run: mkdir hooks
-
-      - name: Create TensorFlow hook
+      - name: Create hooks directory and files
         shell: cmd
         run: |
+          if not exist hooks mkdir hooks
           echo from PyInstaller.utils.hooks import collect_data_files, collect_submodules > hooks/hook-tensorflow.py
           echo hiddenimports = collect_submodules('tensorflow') >> hooks/hook-tensorflow.py
           echo datas = collect_data_files('tensorflow') >> hooks/hook-tensorflow.py
