@@ -35,6 +35,7 @@ class DataCaptureApp:
         self.filename = None
         self.recording = False
         self.cap = None
+        self.save_video = tk.BooleanVar()
         
         # Create main layout
         self.frame_controls = ttk.Frame(root)
@@ -51,6 +52,9 @@ class DataCaptureApp:
         
         self.stop_button = ttk.Button(self.frame_controls, text="Stop Capture", command=self.stop_capture, state=tk.DISABLED)
         self.stop_button.pack(side=tk.LEFT, padx=5)
+        
+        self.video_checkbox = ttk.Checkbutton(self.frame_controls, text="Save Video", variable=self.save_video)
+        self.video_checkbox.pack(side=tk.LEFT, padx=5)
     
     def select_file(self):
         self.filename = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
@@ -75,6 +79,12 @@ class DataCaptureApp:
             self.cap.release()
     
     def capture_data(self):
+        video_writer = None
+        if self.save_video.get():
+            video_filename = self.filename.replace(".csv", ".avi")
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            video_writer = cv2.VideoWriter(video_filename, fourcc, 30.0, (640, 480))
+        
         with open(self.filename, mode='w', newline='') as file:
             writer = csv.writer(file)
             headers = ['elapsed_time', 'width', 'height']
@@ -106,6 +116,9 @@ class DataCaptureApp:
                     
                     self.display_frame(image)
                     
+                    if video_writer:
+                        video_writer.write(image)
+                    
                     if results.pose_landmarks or results.left_hand_landmarks or results.right_hand_landmarks:
                         landmarks = [elapsed_time, width, height]
                         if results.pose_landmarks:
@@ -128,6 +141,8 @@ class DataCaptureApp:
                     if cv2.waitKey(10) & 0xFF == 27:
                         break
                 
+        if video_writer:
+            video_writer.release()
         self.cap.release()
         self.cap = None
 
