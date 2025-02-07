@@ -5,104 +5,140 @@ import time
 import os
 import sys
 import tensorflow as tf
+import tkinter as tk
+from tkinter import filedialog, ttk
+from PIL import Image, ImageTk
+from mediapipe.framework.formats import rect_pb2
 
-def resource_path(relative_path):
-    """Obtém o caminho correto para os recursos, considerando PyInstaller."""
-    try:
-        base_path = sys._MEIPASS
-    except AttributeError:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+# Configure environment
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow log messages
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'  # Enable GPU
 
-# Configurar ambiente
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suprime mensagens de log do TensorFlow
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # Desativa GPU
+def check_gpu():
+    physical_devices = tf.config.list_physical_devices('GPU')
+    if physical_devices:
+        print("GPU detected and enabled:", physical_devices)
+    else:
+        print("No GPU detected. Running on CPU.")
 
-# Inicializar MediaPipe
+check_gpu()
+
+# Initialize MediaPipe
 mp_drawing = mp.solutions.drawing_utils
 mp_holistic = mp.solutions.holistic
 
-def main():
-    # Configurar a captura de vídeo
-    cap = cv2.VideoCapture(0)
-    cap.set(cv2.CAP_PROP_FPS, 30)
+class DataCaptureApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Data Capture - MediaPipe")
+        
+        self.filename = None
+        self.recording = False
+        self.cap = None
+        
+        # Create main layout
+        self.frame_controls = ttk.Frame(root)
+        self.frame_controls.pack(side=tk.TOP, fill=tk.X, padx=10, pady=5)
+        
+        self.canvas = tk.Canvas(root, width=640, height=480)
+        self.canvas.pack()
+        
+        self.select_button = ttk.Button(self.frame_controls, text="Select File", command=self.select_file)
+        self.select_button.pack(side=tk.LEFT, padx=5)
+        
+        self.start_button = ttk.Button(self.frame_controls, text="Start Capture", command=self.start_capture, state=tk.DISABLED)
+        self.start_button.pack(side=tk.LEFT, padx=5)
+        
+        self.stop_button = ttk.Button(self.frame_controls, text="Stop Capture", command=self.stop_capture, state=tk.DISABLED)
+        self.stop_button.pack(side=tk.LEFT, padx=5)
+    
+    def select_file(self):
+        self.filename = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
+        if self.filename:
+            self.start_button.config(state=tk.NORMAL)
+    
+    def start_capture(self):
+        if not self.filename:
+            return
+        self.recording = True
+        self.start_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.NORMAL)
+        self.cap = cv2.VideoCapture(0)
+        self.cap.set(cv2.CAP_PROP_FPS, 30)
+        self.capture_data()
+    
+    def stop_capture(self):
+        self.recording = False
+        self.start_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.DISABLED)
+        if self.cap:
+            self.cap.release()
+    
+    def capture_data(self):
+        with open(self.filename, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            headers = ['elapsed_time', 'width', 'height']
+            for i in range(33):
+                headers += [f'pose_landmark_{i}_x', f'pose_landmark_{i}_y', f'pose_landmark_{i}_z', f'pose_landmark_{i}_visibility']
+            for i in range(21):
+                headers += [f'left_hand_landmark_{i}_x', f'left_hand_landmark_{i}_y', f'left_hand_landmark_{i}_z']
+                headers += [f'right_hand_landmark_{i}_x', f'right_hand_landmark_{i}_y', f'right_hand_landmark_{i}_z']
+            writer.writerow(headers)
+            
+            with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5, model_complexity=0) as holistic:
+                start_time = time.time()
+                
+                while self.recording and self.cap.isOpened():
+                    ret, frame = self.cap.read()
+                    if not ret:
+                        break
+                    
+                    elapsed_time = time.time() - start_time
+                    height, width, _ = frame.shape
+                    
+                    image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    results = holistic.process(image)
+                    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                    
+                    mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
+                    mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
+                    mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
+                    
+                    self.display_frame(image)
+                    
+                    if results.pose_landmarks or results.left_hand_landmarks or results.right_hand_landmarks:
+                        landmarks = [elapsed_time, width, height]
+                        if results.pose_landmarks:
+                            for landmark in results.pose_landmarks.landmark:
+                                landmarks += [landmark.x * width, landmark.y * height, landmark.z, landmark.visibility]
+                        else:
+                            landmarks += [float('nan')] * 132
+                        if results.left_hand_landmarks:
+                            for landmark in results.left_hand_landmarks.landmark:
+                                landmarks += [landmark.x * width, landmark.y * height, landmark.z]
+                        else:
+                            landmarks += [float('nan')] * 63
+                        if results.right_hand_landmarks:
+                            for landmark in results.right_hand_landmarks.landmark:
+                                landmarks += [landmark.x * width, landmark.y * height, landmark.z]
+                        else:
+                            landmarks += [float('nan')] * 63
+                        writer.writerow(landmarks)
+                    
+                    if cv2.waitKey(10) & 0xFF == 27:
+                        break
+                
+        self.cap.release()
+        self.cap = None
 
-    # Variável para armazenar o timestamp do início
-    start_time = None
-
-    # Abrir arquivo CSV para salvar os landmarks
-    with open('landmarks.csv', mode='w', newline='') as file:
-        writer = csv.writer(file)
-        # Escrever cabeçalhos
-        headers = ['elapsed_time']
-        for i in range(33):
-            headers += [f'pose_landmark_{i}_x', f'pose_landmark_{i}_y', f'pose_landmark_{i}_z', f'pose_landmark_{i}_visibility']
-        for i in range(21):
-            headers += [f'left_hand_landmark_{i}_x', f'left_hand_landmark_{i}_y', f'left_hand_landmark_{i}_z']
-            headers += [f'right_hand_landmark_{i}_x', f'right_hand_landmark_{i}_y', f'right_hand_landmark_{i}_z']
-        writer.writerow(headers)
-
-        with mp_holistic.Holistic(
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
-            model_complexity=0
-        ) as holistic:
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret:
-                    break
-
-                # Capturar o timestamp atual
-                current_timestamp = time.time()
-
-                # Definir o timestamp inicial
-                if start_time is None:
-                    start_time = current_timestamp
-
-                # Calcular o tempo decorrido desde o início
-                elapsed_time = current_timestamp - start_time
-
-                # Converter a imagem para RGB
-                image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                # Processar a imagem com MediaPipe Holistic
-                results = holistic.process(image)
-
-                # Desenhar os landmarks na imagem
-                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-                mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
-                mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
-                mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
-
-                # Mostrar a imagem em uma janela
-                cv2.imshow('MediaPipe Holistic', image)
-
-                # Salvar os landmarks e o tempo decorrido no arquivo CSV
-                if results.pose_landmarks or results.left_hand_landmarks or results.right_hand_landmarks:
-                    landmarks = [elapsed_time]
-                    if results.pose_landmarks:
-                        for landmark in results.pose_landmarks.landmark:
-                            landmarks += [landmark.x, landmark.y, landmark.z, landmark.visibility]
-                    else:
-                        landmarks += [float('nan')] * 132
-                    if results.left_hand_landmarks:
-                        for landmark in results.left_hand_landmarks.landmark:
-                            landmarks += [landmark.x, landmark.y, landmark.z]
-                    else:
-                        landmarks += [float('nan')] * 63
-                    if results.right_hand_landmarks:
-                        for landmark in results.right_hand_landmarks.landmark:
-                            landmarks += [landmark.x, landmark.y, landmark.z]
-                    else:
-                        landmarks += [float('nan')] * 63
-                    writer.writerow(landmarks)
-
-                # Finalizar se pressionar ESC
-                if cv2.waitKey(10) & 0xFF == 27:
-                    break
-
-    # Liberar recursos
-    cap.release()
-    cv2.destroyAllWindows()
+    def display_frame(self, frame):
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(frame)
+        imgtk = ImageTk.PhotoImage(image=img)
+        self.canvas.create_image(0, 0, anchor=tk.NW, image=imgtk)
+        self.root.update()
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = DataCaptureApp(root)
+    root.mainloop()
