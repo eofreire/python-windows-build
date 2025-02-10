@@ -15,7 +15,6 @@ import urllib.request
 
 CAPTURE_FPS = 30.0    # Camera capture rate
 PROCESS_FPS = 30.0    # Landmark detection rate
-#RECORD_FPS = 10.0     # Video recording rate
 VIDEO_CODEC = 'mp4v'  # Codec for MP4 format
 VIDEO_FORMAT = '.mp4'  # File extension
 
@@ -353,9 +352,6 @@ class MotionCaptureApp:
                         f"User: {username} | Processing: {frames_processed} frames ({real_fps:.1f} FPS) | "
                         f"Recording: {frames_recorded} frames ({recording_fps:.1f} FPS)"
                     )
-                    
-                    # Small delay to prevent excessive CPU usage
-                  #  time.sleep(0.001)
                     
                     if cv2.waitKey(1) & 0xFF == 27:  # ESC
                         break
