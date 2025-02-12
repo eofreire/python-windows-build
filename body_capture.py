@@ -1,3 +1,5 @@
+import setuptools
+import distutils
 import cv2
 import mediapipe as mp
 import csv
@@ -30,8 +32,7 @@ def configure_mediapipe():
     """Configure MediaPipe to use local models"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     mediapipe_path = os.path.dirname(mp.__file__)
-    
-    # Define os caminhos dos modelos
+
     models = {
         'pose': {
             'source': os.path.join(current_dir, 'pose_landmark_lite.tflite'),
@@ -42,20 +43,16 @@ def configure_mediapipe():
             'dest': os.path.join(mediapipe_path, 'modules', 'hand_landmark', 'hand_landmark.tflite')
         }
     }
-    
-    # Cria os diretórios necessários
+
     for model in models.values():
         os.makedirs(os.path.dirname(model['dest']), exist_ok=True)
-        
-        # Copia os modelos se não existirem no destino
         if not os.path.exists(model['dest']):
             if os.path.exists(model['source']):
                 import shutil
                 shutil.copy2(model['source'], model['dest'])
             else:
                 raise FileNotFoundError(f"Model not found: {model['source']}")
-    
-    # Configura os caminhos dos modelos no MediaPipe
+
     mp.solutions.pose._POSE_LANDMARK_MODEL_PATH = models['pose']['dest']
     mp.solutions.hands._HAND_LANDMARK_MODEL_PATH = models['hand']['dest']
     
