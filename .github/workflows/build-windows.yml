@@ -44,6 +44,8 @@ jobs:
           --collect-all mediapipe 
           --runtime-hook=tf_hook.py 
           --clean 
+          --add-data "pose_landmark_lite.tflite;." 
+          --add-data "hand_landmark.tflite;." 
           body_capture.py
 
       - name: List files in dist folder
