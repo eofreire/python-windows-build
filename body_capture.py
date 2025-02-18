@@ -1,5 +1,3 @@
-import setuptools
-import distutils
 import cv2
 import mediapipe as mp
 import csv
@@ -15,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 import ssl
 import urllib.request
 
-CAPTURE_FPS = 30.0    # Camera capture rate
+CAPTURE_FPS = 60.0    # Attempt to set the camera capture rate to 60 FPS
 PROCESS_FPS = 30.0    # Landmark detection rate
 VIDEO_CODEC = 'mp4v'  # Codec for MP4 format
 VIDEO_FORMAT = '.mp4'  # File extension
@@ -31,31 +29,18 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 def configure_mediapipe():
     """Configure MediaPipe to use local models"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    mediapipe_path = os.path.dirname(mp.__file__)
-
-    models = {
-        'pose': {
-            'source': os.path.join(current_dir, 'pose_landmark_lite.tflite'),
-            'dest': os.path.join(mediapipe_path, 'modules', 'pose_landmark', 'pose_landmark_lite.tflite')
-        },
-        'hand': {
-            'source': os.path.join(current_dir, 'hand_landmark.tflite'),
-            'dest': os.path.join(mediapipe_path, 'modules', 'hand_landmark', 'hand_landmark.tflite')
-        }
-    }
-
-    for model in models.values():
-        os.makedirs(os.path.dirname(model['dest']), exist_ok=True)
-        if not os.path.exists(model['dest']):
-            if os.path.exists(model['source']):
-                import shutil
-                shutil.copy2(model['source'], model['dest'])
-            else:
-                raise FileNotFoundError(f"Model not found: {model['source']}")
-
-    mp.solutions.pose._POSE_LANDMARK_MODEL_PATH = models['pose']['dest']
-    mp.solutions.hands._HAND_LANDMARK_MODEL_PATH = models['hand']['dest']
     
+    # Check if required models exist in the same directory as the script
+    required_models = ['pose_landmark_lite.tflite', 'hand_landmark.tflite']
+    for model in required_models:
+        model_path = os.path.join(current_dir, model)
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model not found: {model_path}")
+    
+    # Set the model paths for MediaPipe
+    mp.solutions.pose.POSE_LANDMARK_MODEL_PATH = os.path.join(current_dir, 'pose_landmark_lite.tflite')
+    mp.solutions.hands.HAND_LANDMARK_MODEL_PATH = os.path.join(current_dir, 'hand_landmark.tflite')
+
 def check_gpu():
     """Check for GPU availability"""
     physical_devices = tf.config.list_physical_devices('GPU')
@@ -95,6 +80,7 @@ class MotionCaptureApp:
         self.record_fps = tk.DoubleVar(value=10.0)  # Default recording FPS
         self.canvas_width = 1280
         self.canvas_height = 720
+        self.camera_index = tk.IntVar(value=0)  # Default camera index
         
         # Create GUI
         self.create_gui()
@@ -171,6 +157,14 @@ class MotionCaptureApp:
         
         self.fps_entry = ttk.Entry(self.frame_controls, textvariable=self.record_fps, width=5)
         self.fps_entry.pack(side=tk.LEFT, padx=5)
+        
+        # Add camera selection combobox
+        self.camera_label = ttk.Label(self.frame_controls, text="Select Camera:")
+        self.camera_label.pack(side=tk.LEFT, padx=5)
+        
+        self.camera_combobox = ttk.Combobox(self.frame_controls, textvariable=self.camera_index)
+        self.camera_combobox['values'] = self.get_available_cameras()
+        self.camera_combobox.pack(side=tk.LEFT, padx=5)
 
     def create_status_display(self):
         self.status_var = tk.StringVar()
@@ -222,14 +216,12 @@ class MotionCaptureApp:
         self.select_button.config(state=tk.DISABLED)
         
         try:
-            self.cap = cv2.VideoCapture(0)
+            self.cap = cv2.VideoCapture(self.camera_index.get())
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            
+            # Attempt to set the camera capture rate to 60 FPS
             self.cap.set(cv2.CAP_PROP_FPS, CAPTURE_FPS)
-            
-            if not self.cap.isOpened():
-                raise Exception("Unable to access camera")
-            
             actual_fps = self.cap.get(cv2.CAP_PROP_FPS)
             print(f"Camera initialized at {actual_fps} FPS")
             
@@ -343,7 +335,10 @@ class MotionCaptureApp:
                         f"User: {username} | Processing: {frames_processed} frames ({real_fps:.1f} FPS) | "
                         f"Recording: {frames_recorded} frames ({recording_fps:.1f} FPS)"
                     )
-                                        
+                    
+                    # Small delay to prevent excessive CPU usage
+                  #  time.sleep(0.001)
+                    
                     if cv2.waitKey(1) & 0xFF == 27:  # ESC
                         break
             
@@ -438,6 +433,20 @@ class MotionCaptureApp:
             self.cap.release()
         self.root.quit()
         self.root.destroy()
+
+    def get_available_cameras(self):
+        """Get a list of available camera indices"""
+        index = 0
+        arr = []
+        while True:
+            cap = cv2.VideoCapture(index)
+            if not cap.read()[0]:
+                break
+            else:
+                arr.append(index)
+            cap.release()
+            index += 1
+        return arr
 
 def main():
     try:
