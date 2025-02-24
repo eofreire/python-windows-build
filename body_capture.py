@@ -1,6 +1,3 @@
-
-import setuptools
-import distutils
 import cv2
 import mediapipe as mp
 import csv
@@ -16,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 import ssl
 import urllib.request
 
-CAPTURE_FPS = 30.0    # Camera capture rate
+CAPTURE_FPS = 60.0    # Attempt to set the camera capture rate to 60 FPS
 PROCESS_FPS = 30.0    # Landmark detection rate
 VIDEO_CODEC = 'mp4v'  # Codec for MP4 format
 VIDEO_FORMAT = '.mp4'  # File extension
@@ -96,6 +93,7 @@ class MotionCaptureApp:
         self.record_fps = tk.DoubleVar(value=10.0)  # Default recording FPS
         self.canvas_width = 1280
         self.canvas_height = 720
+        self.camera_index = tk.IntVar(value=0)  # Default camera index
         
         # Create GUI
         self.create_gui()
@@ -172,6 +170,14 @@ class MotionCaptureApp:
         
         self.fps_entry = ttk.Entry(self.frame_controls, textvariable=self.record_fps, width=5)
         self.fps_entry.pack(side=tk.LEFT, padx=5)
+        
+        # Add camera selection combobox
+        self.camera_label = ttk.Label(self.frame_controls, text="Select Camera:")
+        self.camera_label.pack(side=tk.LEFT, padx=5)
+        
+        self.camera_combobox = ttk.Combobox(self.frame_controls, textvariable=self.camera_index)
+        self.camera_combobox['values'] = self.get_available_cameras()
+        self.camera_combobox.pack(side=tk.LEFT, padx=5)
 
     def create_status_display(self):
         self.status_var = tk.StringVar()
@@ -223,14 +229,12 @@ class MotionCaptureApp:
         self.select_button.config(state=tk.DISABLED)
         
         try:
-            self.cap = cv2.VideoCapture(0)
+            self.cap = cv2.VideoCapture(self.camera_index.get())
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            
+            # Attempt to set the camera capture rate to 60 FPS
             self.cap.set(cv2.CAP_PROP_FPS, CAPTURE_FPS)
-            
-            if not self.cap.isOpened():
-                raise Exception("Unable to access camera")
-            
             actual_fps = self.cap.get(cv2.CAP_PROP_FPS)
             print(f"Camera initialized at {actual_fps} FPS")
             
@@ -344,7 +348,10 @@ class MotionCaptureApp:
                         f"User: {username} | Processing: {frames_processed} frames ({real_fps:.1f} FPS) | "
                         f"Recording: {frames_recorded} frames ({recording_fps:.1f} FPS)"
                     )
-                                        
+                    
+                    # Small delay to prevent excessive CPU usage
+                  #  time.sleep(0.001)
+                    
                     if cv2.waitKey(1) & 0xFF == 27:  # ESC
                         break
             
@@ -439,6 +446,20 @@ class MotionCaptureApp:
             self.cap.release()
         self.root.quit()
         self.root.destroy()
+
+    def get_available_cameras(self):
+        """Get a list of available camera indices"""
+        index = 0
+        arr = []
+        while True:
+            cap = cv2.VideoCapture(index)
+            if not cap.read()[0]:
+                break
+            else:
+                arr.append(index)
+            cap.release()
+            index += 1
+        return arr
 
 def main():
     try:
