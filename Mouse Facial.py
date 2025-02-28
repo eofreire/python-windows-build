@@ -1,9 +1,40 @@
+import os
 import cv2
 import mediapipe as mp
 import numpy as np
 import pyautogui
 import time
 
+def configure_mediapipe():
+    """Configure MediaPipe to use local models"""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    mediapipe_path = os.path.dirname(mp.__file__)
+
+    models = {
+        'pose': {
+            'source': os.path.join(current_dir, 'pose_landmark_lite.tflite'),
+            'dest': os.path.join(mediapipe_path, 'modules', 'pose_landmark', 'pose_landmark_lite.tflite')
+        },
+        'hand': {
+            'source': os.path.join(current_dir, 'hand_landmark.tflite'),
+            'dest': os.path.join(mediapipe_path, 'modules', 'hand_landmark', 'hand_landmark.tflite')
+        }
+    }
+
+    for model in models.values():
+        os.makedirs(os.path.dirname(model['dest']), exist_ok=True)
+        if not os.path.exists(model['dest']):
+            if os.path.exists(model['source']):
+                import shutil
+                shutil.copy2(model['source'], model['dest'])
+            else:
+                raise FileNotFoundError(f"Model not found: {model['source']}")
+
+    mp.solutions.pose._POSE_LANDMARK_MODEL_PATH = models['pose']['dest']
+    mp.solutions.hands._HAND_LANDMARK_MODEL_PATH = models['hand']['dest']
+
+# Call configure_mediapipe to set up the models
+configure_mediapipe()
 
 mp_face_mesh = mp.solutions.face_mesh
 mp_drawing = mp.solutions.drawing_utils
@@ -110,7 +141,6 @@ def Detecta_Movimientos(face_landmarks): #definimos esta funcion para detectar m
     return Boca_Abierta
 
 '''
-
 def Detecta_Ojos(face_landmarks): #definimos esta funcion para detectar movimientos
     
     #-----------------------Para Ojo Izquierdo
@@ -166,8 +196,6 @@ def Detecta_Ojos(face_landmarks): #definimos esta funcion para detectar movimien
     
 '''
 
-    
-
 ################
 
 with mp_face_mesh.FaceMesh(
@@ -213,7 +241,6 @@ with mp_face_mesh.FaceMesh(
                 #UbicAntex, UbicAntey = UbicActualx, UbicActualy
 
                 '''
-
                 #print('x real igual =', x)
                 if x<470:
                     x=0
@@ -264,7 +291,6 @@ with mp_face_mesh.FaceMesh(
                     
                     
                     
-
                     
         #time.sleep(1)
         cv2.imshow("Frame", frame)
