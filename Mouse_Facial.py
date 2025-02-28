@@ -211,7 +211,7 @@ with mp_face_mesh.FaceMesh(
 
         height, width, _ = frame.shape
         frame = cv2.flip(frame,1) #detectamos la cara
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # la convertimos a RGB
+        frame_rgb = cv2.cvtColor(frame, cvv2.COLOR_BGR2RGB) # la convertimos a RGB
         results = face_mesh.process(frame_rgb)
 
         if results.multi_face_landmarks is not None:
@@ -293,10 +293,10 @@ with mp_face_mesh.FaceMesh(
                     
                     
         #time.sleep(1)
-        cv2.imshow("Frame", frame)
+        cvv2.imshow("Frame", frame)
         k = cv2.waitKey(1) & 0xFF
         if k == 27:
             break
 
 cap.release()
-cv2.destroyAllWindows()
+cvv2.destroyAllWindows()
