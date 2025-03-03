@@ -1,0 +1,60 @@
+name: Build Windows Executable
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy
+          pip install opencv-python
+          pip install mediapipe
+          pip install "tensorflow==2.12.0"
+          pip install PyQt6
+          pip install pyinstaller
+
+      - name: Create runtime-hook
+        shell: cmd
+        run: |
+          echo import os > tf_hook.py
+          echo import numpy as np >> tf_hook.py
+          echo import tensorflow as tf >> tf_hook.py
+          echo os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' >> tf_hook.py
+          echo os.environ['CUDA_VISIBLE_DEVICES'] = '-1' >> tf_hook.py
+
+      - name: Build executable with PyInstaller
+        shell: cmd
+        run: >-
+          pyinstaller --onefile 
+          --hidden-import="mediapipe" 
+          --hidden-import="cv2" 
+          --hidden-import="tensorflow" 
+          --hidden-import="numpy" 
+          --hidden-import="PyQt6" 
+          --collect-all mediapipe 
+          --runtime-hook=tf_hook.py 
+          --clean 
+          --add-data "pose_landmark_lite.tflite;."
+          --add-data "hand_landmark.tflite;."
+          body_capture.py
+
+      - name: List files in dist folder
+        run: dir dist
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-executable
+          path: dist/body_capture.exe
